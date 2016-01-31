@@ -43,7 +43,7 @@
     <div class="table">
         <div class="tableRow">
             <div class="tableCell box">
-                <canvas id="panel" width="1920" height="1080"></canvas>
+                <canvas id="panel" width="640" height="360"></canvas>
             </div>
         </div>
 
@@ -84,6 +84,7 @@
 
         const LOGOW = 500;
         const LOGOH = 300;
+        const SCALE = 0.3333333333333333;
 
 
         function init() {
@@ -127,17 +128,20 @@
 
         //loads the imagaes into the canvas
         function loadImage() {
-            drawCanvas(lastPointX, lastPointY);
+            drawCanvas(lastPointX, lastPointY, true);
         }
 
-        function drawCanvas(x, y) {
+        function drawCanvas(x, y, preview) {
             var w = ctx.canvas.width,
                 h = ctx.canvas.height;
+            if (!preview) { w = 1920; h = 1080; }
             ctx.clearRect(0, 0, w, h);
             baseX = baseX + (x - lastPointX);
             baseY = baseY + (y - lastPointY);
             lastPointX = x;
             lastPointY = y;
+            ctx.save();
+            if (preview) { ctx.scale(SCALE, SCALE); }
             ctx.drawImage(image, baseX, baseY, Math.floor(image.width * scale), Math.floor(image.height * scale));
             var wRatio = LOGOW / imageLogo.width;
             var hRatio = LOGOH / imageLogo.height;
@@ -151,16 +155,32 @@
             var rHeight = imageLogo.height * ratio;    // Reset height to match scaled image
             var midWidth = (LOGOW - rWidth) / 2
             var midHeight = (LOGOH - rHeight) / 2
-            ctx.drawImage(imageLogo, ctx.canvas.width - LOGOW - 25 + midWidth, 25 + midHeight, rWidth, rHeight)
+            if (preview) {
+                ctx.drawImage(imageLogo, w / SCALE - LOGOW - 25 + midWidth, 25 + midHeight, rWidth, rHeight)
+            } else {
+                ctx.drawImage(imageLogo, w - LOGOW - 25 + midWidth, 25 + midHeight, rWidth, rHeight)
+            }
+           
             ctx.drawImage(imageTemplate, 0, 0);
+            ctx.restore();
         };
 
         //creates an image with whats on the canvas
         function createImage() {
-            var img = ctx.canvas.toDataURL("image/png");
-            document.write('<img src="' + img + '"/>');
-        }
+            var offscreen = document.createElement('canvas');
+            ctx = offscreen.getContext("2d");
+            offscreen.width = 1920;
+            offscreen.height = 1080;
+            drawCanvas(lastPointX, lastPointY, false);
+            var vData = ctx.canvas.toDataURL("image/png");
+            document.getElementById('promo_result').src = vData;
+            ctx = document.getElementById("panel").getContext("2d");
 
+            //var vData = ctx.canvas.toDataURL("image/png");
+            //document.getElementById('promo_result').src = vData;
+            ////var img = ctx.canvas.toDataURL("image/png");
+            ////document.write('<img src="' + img + '"/>');
+        }
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         //  Functions to handle pan
@@ -180,7 +200,7 @@
             e.preventDefault();
             if (click) {
                 var loc = windowToCanvas(e.clientX, e.clientY);
-                drawCanvas(loc.x, loc.y);
+                drawCanvas(loc.x, loc.y,true);
             }
         };
 
@@ -195,8 +215,8 @@
             var canvas = ctx.canvas;
             var bbox = canvas.getBoundingClientRect();
             return {
-                x: x - bbox.left * (canvas.width / bbox.width),
-                y: y - bbox.top * (canvas.height / bbox.height)
+                x: (x - bbox.left * (canvas.width / bbox.width)) / SCALE,
+                y: (y - bbox.top * (canvas.height / bbox.height)) / SCALE
             };
         };
 
@@ -204,7 +224,7 @@
         //  Functions to handle zoom
         function updateScale(e) {
             scale = e.target.value;
-            drawCanvas(lastPointX, lastPointY);
+            drawCanvas(lastPointX, lastPointY, true);
         };
         //Trigger the app.
         init();
