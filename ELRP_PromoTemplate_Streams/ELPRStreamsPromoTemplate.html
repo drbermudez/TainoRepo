@@ -49,10 +49,8 @@
 
         <div class="tableRow">
             <div class="tableCell">
-                Game Image: <input id="gameImage" type="text" name="gameImage" value="https://images-eds-ssl.xboxlive.com/image?url=8Oaj9Ryq1G1_p3lLnXlsaZgGzAie6Mnu24_PawYuDYIoH77pJ.X5Z.MqQPibUVTcdn4.dI8zub9..A9oHth68ifbmvquvm45nNznztLAukxx1r.fcx9b7Sd9VyLN6SZiBekIKLrUoW6.6CyUptE3PVG3kEks__3PlIvmjN9Tyn7PAUp2Q0w.BHstA0yvBryDUsAb5aTx5pciiBbUWmPiqd3bgDxIwq5NWBTtME3sZ.8-&format=jpg"><br>
-                Logo Image: <input id="gameLogo" type="text" name="gameLogo" value="http://logonoid.com/images/destiny-logo.png"><br>
-                FileInputTest: <input type="file" id="fileUpload" accept="image/*" /><br>
-                <button id="btnLoadImages">Load Images</button><br>
+                Game Image: <input type="file" id="fuImage" accept="image/*" /><br>
+                Game Logo:  <input type="file" id="fuLogo" accept="image/*" /><br>
                 <br>
                 Zoom it:  <input id='scaleSlider' type='range' min='1' max='3.0' step='0.01' value='1.0' /> <br>
                 <br>
@@ -68,212 +66,148 @@
     </div>
 
 
-
-
-
-    </div>
-
     <script>
-    var imagePromo = {
-        ctx: document.getElementById("panel").getContext("2d"),
-        image: new Image(),
-		imageTemplate: new Image(),
-		imageLogo: new Image(),
-        scale: 1,
-        click: false,
-        baseX: 0,
-        baseY: 0,
-        lastPointX: 0,
-        lastPointY: 0,
+        var ctx = document.getElementById("panel").getContext("2d");
 
-        processImage: function (file) {
-            var reader = new FileReader();
-            reader.readAsDataUrl(file);
-            reader.onload = function (e) {
-                this.image.src = e.target.result;
-            }
-        },
+        //vars to hold images
+        var image = new Image();
+        var imageLogo = new Image();
+        var imageTemplate = new Image();
+
+        //vars to handle image zoom and pan
+        var scale= 1;
+        var click= false;
+        var baseX= 0;
+        var baseY= 0;
+        var lastPointX= 0;
+        var lastPointY = 0;
+
+        const LOGOW = 500;
+        const LOGOH = 300;
 
 
-        init: function() {
-            //this.image.src = 'image.jpg';
-			this.imageTemplate.src = 'images/ct-virus-promo.png';
-			//this.imageLogo.src = 'RochardLogo.png';//'transLogo.png';
-            this.image.onload = this.onImageLoad.bind(this);
-            document.getElementById("btnCreateImage").onclick = this.createImageToSave.bind(this);
-			document.getElementById("btnLoadImages").onclick = this.loadImages.bind(this);
-            document.getElementById("scaleSlider").oninput = this.updateScale.bind(this);
-			document.getElementById("fileUpload").onchange = function (e) {
-				var files = event.target.files,	file;
-				if (files && files.length > 0) {
-					file = files[0];
-					//this.processImage(file);
-				};
+        function init() {
+            imageTemplate.src = 'images/ct-virus-promo.png';
+
+            document.getElementById("fuImage").addEventListener("change", readImage, false);
+            document.getElementById("fuLogo").addEventListener("change", readImage, false);
+            document.getElementById("btnCreateImage").addEventListener("click", createImage, false);
+            document.getElementById("scaleSlider").addEventListener("input", updateScale, false);
+
+
+            image.onload = loadImage.bind();
+            imageLogo.onload = loadImage.bind();
+            ctx.canvas.onmousedown = onMouseDown.bind(this);
+            ctx.canvas.onmousemove = onMouseMove.bind(this);
+            ctx.canvas.onmouseup = onMouseUp.bind(this);
+        }
+
+        //get the user input and fill the appropiate image var
+        function readImage(event) {
+            var files = event.target.files,	file;
+            if (files && files.length > 0) {
+                file = files[0];
+                if (event.target.id == 'fuImage') {
+                    processImage(file, image);
+                } else {
+                    processImage(file, imageLogo);
+                }
+                
             };
-        },
+        };
 
- 
-        getBase64Image: function () {
-            p=document.getElementById("fileUpload").value;
-            this.image.setAttribute('src', p);
-            canvas.width = this.image.width;
-            canvas.height = this.image.height;
-            var ctx = canvas.getContext("2d");
-            ctx.drawImage(this.image, 0, 0);
-            var dataURL = canvas.toDataURL("image/png");alert("from getbase64 function"+dataURL );
-            return dataURL;
-        },
+        //reads the browsed file (used as an event)
+        function processImage(file, myImage) {
+            var reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function (e) {
+                myImage.src = e.target.result;
+            };
+        };
 
-        /**
-         * Animation on the canvas depends on three events of mouse. down, up and move
-         */
-        onImageLoad: function() {
-            this.drawimage(0, 0);
-            this.ctx.canvas.onmousedown = this.onMouseDown.bind(this);
-            this.ctx.canvas.onmousemove = this.onMouseMove.bind(this);
-            this.ctx.canvas.onmouseup = this.onMouseUp.bind(this);
-			//this.ctx.drawImage(this.imageLogo, this.ctx.canvas.width - this.imageLogo.width - 100, 10)
-			//this.ctx.drawImage(this.imageTemplate, 0, 0);
-        },
+        //loads the imagaes into the canvas
+        function loadImage() {
+            drawCanvas(lastPointX, lastPointY);
+        }
 
-        /**
-         * Draw image on canvas, after any changes
-         * @param  {[type]} x
-         * @param  {[type]} y
-         * @return {[type]}
-         */
-        drawimage: function(x, y) {
-            var w = this.ctx.canvas.width,
-                h = this.ctx.canvas.height;
-            this.ctx.clearRect(0, 0, w, h);
-            this.baseX = this.baseX + (x - this.lastPointX);
-            this.baseY = this.baseY + (y - this.lastPointY);
-            this.lastPointX = x;
-            this.lastPointY = y;
-            this.ctx.drawImage(this.image, this.baseX, this.baseY, Math.floor(this.image.width * this.scale), Math.floor(this.image.height * this.scale));
-			//this.ctx.drawImage(this.imageLogo, this.ctx.canvas.width - this.imageLogo.width - 50, 50)
-
-			if (this.imageLogo.width > this.imageLogo.height) {
-				var ratio = 500 / this.imageLogo.width;   // get ratio for scaling image
-				var rHeight = this.imageLogo.height * ratio;    // Reset height to match scaled image
-				var rWidth = this.imageLogo.width * ratio;
-				var midHeight = 150 - rHeight/2
-				this.ctx.drawImage(this.imageLogo, this.ctx.canvas.width - rWidth - 25, 25 + midHeight, rWidth, rHeight)
-			} else {
-				var ratio = 300 / this.imageLogo.height;   // get ratio for scaling image
-				var rHeight = this.imageLogo.height * ratio;    // Reset height to match scaled image
-				var rWidth = this.imageLogo.width * ratio;
-				var midWidth = 250 - rWidth/2
-				this.ctx.drawImage(this.imageLogo, this.ctx.canvas.width - 525 + midWidth, 25, rWidth, rHeight)
-			};
-
-			this.ctx.drawImage(this.imageTemplate, 0, 0);
-        },
-
-
-        /**
-         * Get call on mouse press, make click variable to true, which will be used in mousemove events
-         * It also set the point were mouse click happened.
-         * @param  {[type]} e
-         * @return {[type]}
-         */
-        onMouseDown: function(e) {
-            e.preventDefault();
-            var loc = this.windowToCanvas(e.clientX, e.clientY);
-            this.click = true;
-            this.lastPointX = loc.x;
-            this.lastPointY = loc.y;
-        },
-
-        /**
-         * Track the mouse movment and draw the image accordingly, but only when clicked happened.
-         * @param  {[type]} e
-         * @return {[type]}
-         */
-        onMouseMove: function(e) {
-            e.preventDefault();
-            if (this.click) {
-                var loc = this.windowToCanvas(e.clientX, e.clientY);
-                this.drawimage(loc.x, loc.y);
+        function drawCanvas(x, y) {
+            var w = ctx.canvas.width,
+                h = ctx.canvas.height;
+            ctx.clearRect(0, 0, w, h);
+            baseX = baseX + (x - lastPointX);
+            baseY = baseY + (y - lastPointY);
+            lastPointX = x;
+            lastPointY = y;
+            ctx.drawImage(image, baseX, baseY, Math.floor(image.width * scale), Math.floor(image.height * scale));
+            var wRatio = LOGOW / imageLogo.width;
+            var hRatio = LOGOH / imageLogo.height;
+            var ratio = null;
+            if (wRatio < hRatio) {
+                ratio = wRatio;   
+            } else {
+                ratio = hRatio;
             }
-        },
+            var rWidth = imageLogo.width * ratio;
+            var rHeight = imageLogo.height * ratio;    // Reset height to match scaled image
+            var midWidth = (LOGOW - rWidth) / 2
+            var midHeight = (LOGOH - rHeight) / 2
+            ctx.drawImage(imageLogo, ctx.canvas.width - LOGOW - 25 + midWidth, 25 + midHeight, rWidth, rHeight)
+            ctx.drawImage(imageTemplate, 0, 0);
+        };
 
-        /**
-         * make click = false, hence no canvas draw on mousemovment.
-         * @param  {[type]} e
-         * @return {[type]}
-         */
-        onMouseUp: function(e) {
+        //creates an image with whats on the canvas
+        function createImage() {
+            var img = ctx.canvas.toDataURL("image/png");
+            document.write('<img src="' + img + '"/>');
+        }
+
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        //  Functions to handle pan
+
+        //Get call on mouse press, make click variable to true, which will be used in mousemove events
+        //It also set the point were mouse click happened
+        function onMouseDown(e) {
             e.preventDefault();
-            this.click = false;
-        },
+            var loc = windowToCanvas(e.clientX, e.clientY);
+            click = true;
+            lastPointX = loc.x;
+            lastPointY = loc.y;
+        };
 
-        /**
-         * Translate to HTML coardinates to Canvas coardinates.
-         */
-        windowToCanvas: function(x, y) {
-            var canvas = this.ctx.canvas;
+        //Track the mouse movment and draw the image accordingly, but only when clicked happened.
+        function onMouseMove(e) {
+            e.preventDefault();
+            if (click) {
+                var loc = windowToCanvas(e.clientX, e.clientY);
+                drawCanvas(loc.x, loc.y);
+            }
+        };
+
+        //make click = false, hence no canvas draw on mousemovment.
+        function onMouseUp(e) {
+            e.preventDefault();
+            click = false;
+        };
+
+        //Translate to HTML coardinates to Canvas coardinates.
+        function windowToCanvas(x, y) {
+            var canvas = ctx.canvas;
             var bbox = canvas.getBoundingClientRect();
             return {
                 x: x - bbox.left * (canvas.width / bbox.width),
                 y: y - bbox.top * (canvas.height / bbox.height)
             };
-        },
+        };
 
-		loadImages: function() {
-			this.scale = 1;
-			this.click = false;
-			this.baseX = 0;
-			this.baseY = 0;
-			this.lastPointX = 0;
-			this.lastPointY = 0;
-
-			this.getBase64Image();
-
-			document.getElementById("scaleSlider").value = 1;
-
-			var input = document.getElementById('fileUpload');
-			var reader = new FileReader();
-
-			var mytempimage = new Image();
-			reader.onloadend = function() {
-				//this.image.src = document.getElementById('gameImage').value;
-				mytempimage.src = reader.result;
-				this.image.src = mytempimage.src;
-			}
-			//reader.readAsDataURL(input.files[0]);
-			//alert(mytempimage.src);
-			//this.image.src = mytempimage.src;
-			this.image.src = document.getElementById('gameImage').value;
-			this.imageLogo.src = document.getElementById('gameLogo').value;
-		},
-
-        /**
-         * Get the canavs create image elemnet on UI.
-         * @return {[type]}
-         */
-        createImageToSave: function() {
-			alert('imhere');
-            var vData = this.ctx.canvas.toDataURL();
-			alert('imhere2');
-            document.getElementById('promo_result').src = vData;
-			alert('imhere3');
-        },
-        /**
-         * Update image zoom scale on slider movment.
-         * @param  {[type]} e
-         * @return {[type]}
-         */
-        updateScale: function(e) {
-            this.scale = e.target.value;
-            this.drawimage(this.lastPointX, this.lastPointY);
-        },
-    };
-
-    /**
-     * Trigger the app.
-     */
-    imagePromo.init();
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        //  Functions to handle zoom
+        function updateScale(e) {
+            scale = e.target.value;
+            drawCanvas(lastPointX, lastPointY);
+        };
+        //Trigger the app.
+        init();
     </script>
 </body>
 
